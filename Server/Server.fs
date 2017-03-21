@@ -48,18 +48,23 @@ let broadcastExcept ws msg =
 
 wsServer.on_connection(fun ws ->
     let pid = addPlayer()
-    console.log(sprintf "Assigned new player id %d" pid)
 
-    // Identify the player that joined
-    IdPlayer(pid) |> send ws
+    if pid > 10 then
+        console.log("Max players reached")
+    else
+        console.log(sprintf "Assigned new player id %d" pid)
 
-    // Let everyone else know that a player has joined
-    NewPlayer(pid) |> broadcastExcept ws
+        // Identify the player that joined
+        IdPlayer(pid) |> send ws
+
+        // Let everyone else know that a player has joined
+        NewPlayer(pid) |> broadcastExcept ws
     
     ws.on_message <| fun msg ->
         let msg' = JSON.parse (string msg) :?> WsMessage
         match msg' with
         | PostCircle (pid,x,y) -> NewCircle(pid,x,y) |> broadcastAll
+        | DeleteCircle (pid,x,y) -> DeleteCircle(pid,x,y) |> broadcastAll
         | _ -> ()
 
     ws.on_close(fun _ ->
