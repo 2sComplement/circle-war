@@ -10,16 +10,25 @@ open Fable.Import.JS
 
 // MODEL
 
+type RelativeClick =
+    abstract left: float
+    abstract top: float
+
+type ClickEvent =
+    inherit EventTarget
+    abstract getBoundingClientRect: unit -> RelativeClick
+
 type Model =
-    { count: int
-      connected: bool }
+    { connected: bool
+      playerId: PlayerId option
+      otherPlayers: PlayerId list
+      circles: (PlayerId * Coordinate) list }
 
 type Msg =
     | Noop of unit
     | Error of exn
-    | Increment
-    | Decrement
     | Send of WsMessage
+    | Rcv of WsMessage
     | Connected of bool
 
 let ws = WebSocket.Create("ws://localhost:8080")
@@ -29,8 +38,9 @@ let onMessage dispatch =
     fun (msg: MessageEvent) ->
         let msg' = msg.data |> string |> JSON.parse :?> WsMessage
         match msg' with
-        | DoIncr -> dispatch Increment
-        | DoDecr -> dispatch Decrement
+        | NewCircle _
+        | NewPlayer _
+        | IdPlayer _ as msg -> Rcv msg |> dispatch
         | _ -> console.log(sprintf "Not handling unknown message: %s" (string msg.data))
         unbox None
 
@@ -53,41 +63,44 @@ let send msg =
     let m = JSON.stringify msg
     ws.send m
 
-let init () = { count = 0; connected = false }, []
+let init () = { connected = false; playerId = None; otherPlayers = []; circles = [] }, Cmd.none
 
 // UPDATE
 
 let update (msg:Msg) model =
     match msg with
-    | Noop _ -> model,[]
-    | Increment -> { model with count = model.count + 1 },[]
-    | Decrement -> { model with count = model.count - 1 },[]
+    | Noop _ -> model, Cmd.none
     | Send m -> model, Cmd.ofFunc send m Noop Error
     | Error ex ->
         console.error("Error: ", ex)
-        model, []
-    | Connected c -> { model with connected = c },[]
+        model, Cmd.none
+    | Rcv (NewCircle(pid,x,y)) -> { model with circles = model.circles |> List.append [ pid, (x,y) ] } , Cmd.none
+    | Rcv (IdPlayer pid) -> { model with playerId = Some pid }, Cmd.none
+    | Rcv (NewPlayer pid) -> { model with otherPlayers = model.otherPlayers |> List.append [ pid ]}, Cmd.none 
+    | Rcv _ -> model, Cmd.none
+    | Connected c -> { model with connected = c }, Cmd.none
 
 // rendering views with React
 module R = Fable.Helpers.React
 open Fable.Helpers.React.Props
 
 let view model dispatch =
-    let onClick msg =
-        OnClick <| fun _ -> msg |> dispatch
+    let onClick suppress =
+        OnClick <| fun e -> 
+            let dim = (e.target :?> ClickEvent).getBoundingClientRect()
+            let x = e.clientX - dim.left
+            let y = e.clientY - dim.top
+
+            if suppress then e.stopPropagation()
+
+            PostCircle(model.playerId.Value, x, y) |> Send |> dispatch
+
     let disable = not model.connected
-    R.div [] [
-        R.button [ onClick Decrement ] [ unbox "-" ]
-        R.div [] [ unbox (string model.count) ]
-        R.button [ onClick Increment ] [ unbox "+" ] 
-        R.div [ Style [ MarginTop 40 ]] [
-            R.div [] [ unbox <| if model.connected then "Server, count for me:" else "Server disconnected :(" ]
-            R.div [ Style [ Display "flex"; FlexDirection "row" ]] [
-                R.button [ Disabled disable; onClick <| Send (Incr 1000) ] [ unbox "Auto +" ]
-                R.button [ Disabled disable; onClick <| Send (Decr 1000) ] [ unbox "Auto -" ]
-                R.button [ Disabled disable; onClick <| Send Stop ] [ unbox "Stop it!" ]
-            ]         
-        ]
+    let drawCirc x y = R.circle [ Cx <| unbox x; Cy <| unbox y; R <| unbox 50; Fill "green"; onClick true |> unbox ] []
+    let circles = model.circles |> List.map (fun (pid,(x,y)) -> drawCirc x y)
+    R.div [ Style [ TextAlign "center" ]] [
+        R.div [] [ unbox (match model.playerId with | Some pid -> sprintf "Player%d" pid | None -> "waiting for server") ]
+        R.svg [ Style [ Border "1px solid red"; CSSProp.Width 800; Height 600 ]; onClick false |> unbox ] circles
     ]
 
 open Elmish.React

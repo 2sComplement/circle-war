@@ -10,6 +10,7 @@ open Fable.Import.Node
 open Messages
 open Fable.Import.JS
 open Fable.Import.express
+open ServerModel
 
 // Helper types for running an express server
 
@@ -34,35 +35,36 @@ app.``use``(express.``static``.Invoke(path)) |> ignore
 let opts = [ ServerOptions.Server <| unbox serv ]
 let wsServer = Server.createServer(unbox opts)
 
+let send (ws:Ws.WebSocket) msg =
+    msg |> JSON.stringify |> ws.send
+
+let broadcastAll msg =
+    wsServer.clients
+    |> Seq.iter (fun c -> if c.readyState = ws.OPEN then send c msg)
+
+let broadcastExcept ws msg =
+    wsServer.clients
+    |> Seq.iter (fun c -> if c <> ws && c.readyState = ws.OPEN then send c msg)
+
 wsServer.on_connection(fun ws ->
-    console.log("Client connected")
+    let pid = addPlayer()
+    console.log(sprintf "Assigned new player id %d" pid)
 
-    let mutable ct = new System.Threading.CancellationTokenSource()
-    let rec repeatSend msg ms =
-        async {
-            do! Async.Sleep ms
-            msg |> JSON.stringify |> ws.send
-            return! repeatSend msg ms
-        }
+    // Identify the player that joined
+    IdPlayer(pid) |> send ws
 
-    let start msg ms = 
-        ct.Cancel()
-        ct <- new System.Threading.CancellationTokenSource()
-        Async.StartImmediate(repeatSend msg ms, ct.Token)
-
+    // Let everyone else know that a player has joined
+    NewPlayer(pid) |> broadcastExcept ws
+    
     ws.on_message <| fun msg ->
-        console.log("got msg")
-        console.log(msg)
         let msg' = JSON.parse (string msg) :?> WsMessage
         match msg' with
-        | Incr ms -> console.log("Incrementing every " + (unbox ms)); start DoIncr ms
-        | Decr ms -> console.log("Decrementing every " + (unbox ms)); start DoDecr ms
-        | Stop -> console.log("Stopping"); ct.Cancel()
+        | PostCircle (pid,x,y) -> NewCircle(pid,x,y) |> broadcastAll
         | _ -> ()
 
-
     ws.on_close(fun _ ->
-        console.log("Client disconnected")
+        console.log(sprintf "Player%d left, removing shapes" pid)
+        removePlayer pid
     )
 )
 

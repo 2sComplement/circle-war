@@ -10,6 +10,7 @@
     "babel-runtime": "^6.18.0",
     "express": "~4.14.0",
     "react": "^15.3.1",
+    "react-canvas": "^1.2.1",
     "react-dom": "^15.3.1",
     "ws": "^2.2.0"
   },

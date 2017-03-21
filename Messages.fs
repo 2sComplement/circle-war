@@ -2,9 +2,12 @@
 
 open Fable.Core.JsInterop
 
+type PlayerId = int
+
+type Coordinate = float * float
+
 type WsMessage =
-    | Incr of ms:int
-    | Decr of ms:int
-    | DoIncr
-    | DoDecr
-    | Stop
+    | IdPlayer of pid:PlayerId
+    | NewPlayer of pid:PlayerId
+    | PostCircle of pid:PlayerId * x:float * y:float
+    | NewCircle of pid:PlayerId * x:float * y:float
