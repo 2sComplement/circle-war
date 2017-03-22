@@ -60,7 +60,7 @@ wsServer.on_connection(fun ws ->
         IdPlayer(pid) |> send ws
 
         // Let everyone else know that a player has joined
-        NewPlayer(pid) |> broadcastExcept ws
+        PlayerJoined(pid) |> broadcastExcept ws
     
     ws.on_message <| fun msg ->
         let msg' = JS.JSON.parse (string msg) :?> WsMessage
@@ -79,6 +79,8 @@ wsServer.on_connection(fun ws ->
         match model.circles |> Map.tryFind pid with
         | Some coords -> coords |> Array.iter (fun (x,y) -> DeleteCircle(pid,x,y) |> broadcastAll)
         | None -> ()
+
+        PlayerLeft pid |> broadcastAll
 
         removePlayer pid
     )

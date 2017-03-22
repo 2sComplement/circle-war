@@ -35,7 +35,7 @@ type Msg =
     | Send of WsMessage
     | Rcv of WsMessage
 
-let ws = WebSocket.Create("ws://localhost:8080")
+let ws = WebSocket.Create("ws://" + window.location.hostname + ":8080")
 console.log(ws.readyState);
 
 let onMessage dispatch =
@@ -43,7 +43,8 @@ let onMessage dispatch =
         let msg' = msg.data |> string |> JS.JSON.parse :?> WsMessage
         match msg' with
         | NewCircle _
-        | NewPlayer _
+        | PlayerJoined _
+        | PlayerLeft _
         | DeleteCircle _
         | IdPlayer _ as msg -> Rcv msg |> dispatch
         | _ -> console.log(sprintf "Not handling unknown message: %s" (string msg.data))
@@ -70,8 +71,6 @@ let send msg =
 
 let init () = { connected = false; playerId = None; otherPlayers = []; circles = Map.empty }, Cmd.batch [ Cmd.ofMsg GetPlayers; Cmd.ofMsg GetCircles ]
 
-let colours = [ "#009688";"#F44336";"#673AB7";"#2196F3";"#4CAF50";"#9C27B0";"#3F51B5";"#03A9F4";"#E91E63";"#8BC34A" ]
-
 // UPDATE
 
 //let outputCircles model = console.log(model.circles |> List.map (fun (pid,(x,y)) -> sprintf "%d (%f,%f)" pid x y) |> List.toArray)
@@ -88,7 +87,8 @@ let update (msg:Msg) model =
         | Some existing -> { model with circles = model.circles |> Map.add pid ((x,y) :: existing) }, Cmd.none
         | None -> { model with circles = model.circles |> Map.add pid [x,y] }, Cmd.none
     | Rcv (IdPlayer pid) -> { model with playerId = Some pid }, Cmd.none
-    | Rcv (NewPlayer pid) -> { model with otherPlayers = model.otherPlayers |> List.append [ pid ]}, Cmd.none 
+    | Rcv (PlayerJoined pid) -> { model with otherPlayers = model.otherPlayers |> List.append [ pid ] |> List.distinct}, Cmd.none 
+    | Rcv (PlayerLeft pid) -> { model with otherPlayers = model.otherPlayers |> List.except [ pid ]}, Cmd.none 
     | Rcv (DeleteCircle(pid,x,y)) -> { model with circles = model.circles |> Map.map (fun p coords -> if pid = p then coords |> List.except [x,y] else coords) }, Cmd.none
     | Rcv _ -> model, Cmd.none
     | Connected c -> { model with connected = c }, Cmd.none

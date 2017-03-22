@@ -34,5 +34,5 @@ let addCircle (pid,x,y) =
 let deleteCircle (pid,x,y) =
     model <- { model with circles = model.circles |> Map.map (fun p coords -> if pid = p then coords |> Array.except [|x,y|] else coords) }
 
-let players() = model.playerRegistry |> Map.toArray |> Array.map fst
+let players() = model.playerRegistry |> Map.toArray |> Array.filter (fun (p,r) -> r) |> Array.map fst
 let circles() = model.circles

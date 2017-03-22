@@ -12,6 +12,8 @@ open ClientModel
 module R = Fable.Helpers.React
 open Fable.Helpers.React.Props
 
+let colours = [ "#673AB7";"#2196F3";"#009688";"#F44336";"#4CAF50";"#9C27B0";"#3F51B5";"#03A9F4";"#E91E63";"#8BC34A" ]
+
 let view model dispatch =
 
     let validatePlayer f =
@@ -44,19 +46,31 @@ let view model dispatch =
             
         R.circle [ Cx <| unbox x; Cy <| unbox y; R <| unbox 50; Fill colours.[pid % colours.Length]; unbox onCircleClick ] []
             
+
     let circles = model.circles |> Map.toList |> List.collect (fun (pid,coords) -> coords |> List.map (fun (x,y) -> drawCirc pid x y))
     let currentColour = match model.playerId with | Some pid -> colours.[pid % colours.Length] | None -> "#000000"
-    let otherPlayers = []
-        //model.otherPlayers |> List.sort |> List.map (fun pid -> console.log(pid); R.div [ Style [ Color colours.[pid % colours.Length]; MarginLeft 5 ]] [ unbox <| sprintf "Player%d" pid ])
+    let numCircles pid = match model.circles |> Map.tryFind pid with | Some c -> c.Length | None -> 0
+    let counts,players =
+        let div pid = unbox >> List.singleton >> R.div [ Style [ Margin 2; Color colours.[pid % colours.Length]]]
+        (numCircles model.playerId.Value, sprintf "Player%d (you)" model.playerId.Value, model.playerId.Value) :: (model.otherPlayers |> List.map (fun pid -> numCircles pid, sprintf "Player%d" pid, pid))
+        |> List.sortByDescending (fun (c,_,_) -> c)
+        |> List.map (fun (circs,name,pid) -> div pid circs, div pid name)
+        |> List.unzip
+        //|> List.map (fun pid -> R.div [ Style [ Color colours.[pid % colours.Length]]] [ unbox <| if pid = model.playerId.Value then sprintf "Player%d (you)" pid else sprintf "Player%d" pid])
+    //console.log(Array.ofList players)
+        //model.otherPlayers |> List.sort |> List.map (fun pid -> console.log(pid); R.div [ Style [ Color colours.[pid % colours.Length]; MarginLeft 5 ]] [ unbox <| sprintf "Player%d - %d" (numCircles pid) ])
     R.div [] [
+        R.div [ Style [ Color currentColour ]] [ unbox (match model.playerId with | Some pid -> sprintf "You are: Player%d" pid | None -> "waiting for server") ]
         R.div [ Style [ Display "flex"; FlexDirection "row" ]] [
-            R.div [ Style [ Color currentColour ]] [ unbox (match model.playerId with | Some pid -> sprintf "You are: Player%d" pid | None -> "waiting for server") ]
-            R.div [ Style [ Flex <| unbox 100 ]] []
-            R.div [ Style [ Display "flex"; FlexDirection "row" ]] ((R.div [] [ unbox "Others: " ]) :: otherPlayers)
-        ]
-        R.div [ Style [ TextAlign "center" ]] [
-            R.svg [ Style [ sprintf "1px solid %s" currentColour |> unbox |> Border; CSSProp.Width 800; Height 600 ]; unbox postCircle ] circles
-        
+            R.div [ Style [ TextAlign "center" ]] [
+                R.svg [ Style [ sprintf "1px solid %s" currentColour |> unbox |> Border; CSSProp.Width 800; Height 600 ]; unbox postCircle ] circles
+            ]
+            R.div [ Style [ Flex <| unbox 100 ]] [
+                R.div [ Style [ Display "flex"; FlexDirection "row" ]] [
+                    R.div [ Style [ Flex <| unbox 100; TextAlign "right" ]] counts
+                    R.div [ Style [ Flex <| unbox 100; TextAlign "left" ]] players
+                ]
+            ]
         ]
     ]
 
