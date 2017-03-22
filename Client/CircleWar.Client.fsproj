@@ -61,7 +61,9 @@
     <Compile Include="..\Messages.fs">
       <Link>Messages.fs</Link>
     </Compile>
-    <Compile Include="Client.fs" />
+    <Compile Include="Api.fs" />
+    <Compile Include="ClientModel.fs" />
+    <Compile Include="View.fs" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>

@@ -8,9 +8,11 @@ open Fable.Helpers.Ws
 open Fable.Core.JsInterop
 open Fable.Import.Node
 open Messages
-open Fable.Import.JS
+open Fable.Import
 open Fable.Import.express
 open ServerModel
+open System
+open FSharp
 
 // Helper types for running an express server
 
@@ -36,7 +38,7 @@ let opts = [ ServerOptions.Server <| unbox serv ]
 let wsServer = Server.createServer(unbox opts)
 
 let send (ws:Ws.WebSocket) msg =
-    msg |> JSON.stringify |> ws.send
+    msg |> JS.JSON.stringify |> ws.send
 
 let broadcastAll msg =
     wsServer.clients
@@ -61,17 +63,36 @@ wsServer.on_connection(fun ws ->
         NewPlayer(pid) |> broadcastExcept ws
     
     ws.on_message <| fun msg ->
-        let msg' = JSON.parse (string msg) :?> WsMessage
+        let msg' = JS.JSON.parse (string msg) :?> WsMessage
         match msg' with
-        | PostCircle (pid,x,y) -> NewCircle(pid,x,y) |> broadcastAll
-        | DeleteCircle (pid,x,y) -> DeleteCircle(pid,x,y) |> broadcastAll
+        | PostCircle(pid,x,y) -> 
+            addCircle(pid,x,y)
+            NewCircle(pid,x,y) |> broadcastAll
+        | DeleteCircle(pid,x,y) ->
+            deleteCircle(pid,x,y)
+            DeleteCircle(pid,x,y) |> broadcastAll
         | _ -> ()
 
     ws.on_close(fun _ ->
-        console.log(sprintf "Player%d left, removing shapes" pid)
+        console.log(sprintf "Player%d left, removing circles" pid)
+
+        match model.circles |> Map.tryFind pid with
+        | Some coords -> coords |> Array.iter (fun (x,y) -> DeleteCircle(pid,x,y) |> broadcastAll)
+        | None -> ()
+
         removePlayer pid
     )
 )
+
+let respond (resp:Response) o =
+    resp.setHeader("Content-Type", "application/json")
+    Fable.Core.JsInterop.toJson o |> resp.send |> ignore
+
+let getPlayers (req:Request) (resp:Response) = players() |> respond resp
+let getCircles (req:Request) (resp:Response) = circles() |> respond resp
+
+app.get(unbox "/api/players", Func<Request,Response,unit>(getPlayers) |> unbox |> Array.singleton) |> ignore
+app.get(unbox "/api/circles", Func<Request,Response,unit>(getCircles) |> unbox |> Array.singleton) |> ignore
 
 serv.on("request", app)
 serv.listen(8080, unbox <| fun () -> console.log("Listening on http://localhost:8080")) |> ignore

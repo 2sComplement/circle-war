@@ -61,10 +61,16 @@
     <Compile Include="..\Messages.fs">
       <Link>Messages.fs</Link>
     </Compile>
-    <Compile Include="../node_modules/fable-import-ws/Fable.Import.Ws.fs" />
-    <Compile Include="../node_modules/fable-import-ws/Fable.Helpers.Ws.fs" />
-    <Compile Include="../node_modules/fable-import-express/Fable.Import.Express.fs" />
-    <Compile Include="Model.fs" />
+    <Compile Include="../node_modules/fable-import-ws/Fable.Import.Ws.fs">
+      <Link>Fable.Import.Ws.fs</Link>
+    </Compile>
+    <Compile Include="../node_modules/fable-import-ws/Fable.Helpers.Ws.fs">
+      <Link>Fable.Helpers.Ws.fs</Link>
+    </Compile>
+    <Compile Include="../node_modules/fable-import-express/Fable.Import.Express.fs">
+      <Link>Fable.Import.Express.fs</Link>
+    </Compile>
+    <Compile Include="ServerModel.fs" />
     <Compile Include="Server.fs" />
   </ItemGroup>
   <PropertyGroup>
