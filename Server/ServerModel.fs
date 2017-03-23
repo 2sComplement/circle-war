@@ -4,7 +4,7 @@ open Messages
 
 type Model =
     { playerRegistry: Map<PlayerId,bool>
-      circles: Map<PlayerId,Coordinate array> }
+      circles: PlayerCircles }
 
 let mutable model = 
     { playerRegistry = Map.empty
@@ -25,14 +25,8 @@ let removePlayer pid =
             playerRegistry = model.playerRegistry |> Map.add pid false
             circles = model.circles |> Map.add pid Array.empty }
 
-let addCircle (pid,x,y) =
-    model <- 
-        match model.circles |> Map.tryFind pid with
-        | Some existing -> { model with circles = model.circles |> Map.add pid (existing |> Array.append [|x,y|]) }
-        | None -> { model with circles = model.circles |> Map.add pid [|x,y|] }
-
-let deleteCircle (pid,x,y) =
-    model <- { model with circles = model.circles |> Map.map (fun p coords -> if pid = p then coords |> Array.except [|x,y|] else coords) }
+let addCircle (pid,x,y) = model <- { model with circles = model.circles |> addCircle(pid,x,y) }
+let deleteCircle (pid,x,y) = model <- { model with circles = model.circles |> deleteCircle(pid,x,y) }
 
 let players() = model.playerRegistry |> Map.toArray |> Array.filter (fun (p,r) -> r) |> Array.map fst
 let circles() = model.circles

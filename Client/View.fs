@@ -39,26 +39,26 @@ let view model dispatch =
         |> validatePlayer
         
     let disable = not model.connected
-    let drawCirc pid x y = 
+
+    let circleRadius = 30
+
+    let drawCircle pid x y = 
         let onCircleClick = 
             if pid = model.playerId.Value then OnClick <| fun e -> e.stopPropagation()
             else deleteCircle(pid,x,y)
             
-        R.circle [ Cx <| unbox x; Cy <| unbox y; R <| unbox 50; Fill colours.[pid % colours.Length]; unbox onCircleClick ] []
+        R.circle [ Cx <| unbox x; Cy <| unbox y; R <| unbox circleRadius; Fill colours.[pid % colours.Length]; unbox onCircleClick ] []
             
 
-    let circles = model.circles |> Map.toList |> List.collect (fun (pid,coords) -> coords |> List.map (fun (x,y) -> drawCirc pid x y))
+    let circles = model.circles |> Map.toList |> List.collect (fun (pid,coords) -> coords |> Array.toList |> List.map (fun (x,y) -> drawCircle pid x y))
     let currentColour = match model.playerId with | Some pid -> colours.[pid % colours.Length] | None -> "#000000"
-    let numCircles pid = match model.circles |> Map.tryFind pid with | Some c -> c.Length | None -> 0
     let counts,players =
+        let numCircles pid = match model.circles |> Map.tryFind pid with | Some c -> c.Length | None -> 0
         let div pid = unbox >> List.singleton >> R.div [ Style [ Margin 2; Color colours.[pid % colours.Length]]]
         (numCircles model.playerId.Value, sprintf "Player%d (you)" model.playerId.Value, model.playerId.Value) :: (model.otherPlayers |> List.map (fun pid -> numCircles pid, sprintf "Player%d" pid, pid))
         |> List.sortByDescending (fun (c,_,_) -> c)
         |> List.map (fun (circs,name,pid) -> div pid circs, div pid name)
         |> List.unzip
-        //|> List.map (fun pid -> R.div [ Style [ Color colours.[pid % colours.Length]]] [ unbox <| if pid = model.playerId.Value then sprintf "Player%d (you)" pid else sprintf "Player%d" pid])
-    //console.log(Array.ofList players)
-        //model.otherPlayers |> List.sort |> List.map (fun pid -> console.log(pid); R.div [ Style [ Color colours.[pid % colours.Length]; MarginLeft 5 ]] [ unbox <| sprintf "Player%d - %d" (numCircles pid) ])
     R.div [] [
         R.div [ Style [ Color currentColour ]] [ unbox (match model.playerId with | Some pid -> sprintf "You are: Player%d" pid | None -> "waiting for server") ]
         R.div [ Style [ Display "flex"; FlexDirection "row" ]] [

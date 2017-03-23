@@ -22,7 +22,7 @@ type Model =
     { connected: bool
       playerId: PlayerId option
       otherPlayers: PlayerId list
-      circles: Map<PlayerId,Coordinate list> }
+      circles: PlayerCircles }
 
 type Msg =
     | Noop of unit
@@ -31,7 +31,7 @@ type Msg =
     | GetPlayers
     | GotPlayers of PlayerId []
     | GetCircles
-    | GotCircles of Map<PlayerId,Coordinate array>
+    | GotCircles of PlayerCircles
     | Send of WsMessage
     | Rcv of WsMessage
 
@@ -82,17 +82,14 @@ let update (msg:Msg) model =
     | Error ex ->
         console.error("Error: ", ex)
         model, Cmd.none
-    | Rcv (NewCircle(pid,x,y)) -> 
-        match model.circles |> Map.tryFind pid with
-        | Some existing -> { model with circles = model.circles |> Map.add pid ((x,y) :: existing) }, Cmd.none
-        | None -> { model with circles = model.circles |> Map.add pid [x,y] }, Cmd.none
     | Rcv (IdPlayer pid) -> { model with playerId = Some pid }, Cmd.none
     | Rcv (PlayerJoined pid) -> { model with otherPlayers = model.otherPlayers |> List.append [ pid ] |> List.distinct}, Cmd.none 
     | Rcv (PlayerLeft pid) -> { model with otherPlayers = model.otherPlayers |> List.except [ pid ]}, Cmd.none 
-    | Rcv (DeleteCircle(pid,x,y)) -> { model with circles = model.circles |> Map.map (fun p coords -> if pid = p then coords |> List.except [x,y] else coords) }, Cmd.none
+    | Rcv (NewCircle(pid,x,y)) -> { model with circles = model.circles |> addCircle(pid,x,y) }, Cmd.none
+    | Rcv (DeleteCircle(pid,x,y)) -> { model with circles = model.circles |> Map.map (fun p coords -> if pid = p then coords |> Array.except [x,y] else coords) }, Cmd.none
     | Rcv _ -> model, Cmd.none
     | Connected c -> { model with connected = c }, Cmd.none
     | GetPlayers -> model, Cmd.ofPromise (fun _ -> ClientApi.get<PlayerId[]> "/api/players") () GotPlayers Error
     | GotPlayers players -> { model with otherPlayers = Array.toList players |> List.filter (fun p -> p <> model.playerId.Value) |> List.distinct }, Cmd.none
     | GetCircles -> model, Cmd.ofPromise (fun _ -> ClientApi.get<Map<PlayerId,Coordinate array>> "/api/circles") () GotCircles Error
-    | GotCircles circles -> { model with circles = circles |> Map.map (fun _ coords -> List.ofArray coords) }, Cmd.none
+    | GotCircles circles -> { model with circles = circles |> Map.map (fun _ coords -> coords) }, Cmd.none
