@@ -38,7 +38,7 @@ let opts = [ ServerOptions.Server <| unbox serv ]
 let wsServer = Server.createServer(unbox opts)
 
 let send (ws:Ws.WebSocket) msg =
-    msg |> JS.JSON.stringify |> ws.send
+    msg |> toJson |> ws.send
 
 let broadcastAll msg =
     wsServer.clients
@@ -63,11 +63,11 @@ wsServer.on_connection(fun ws ->
         PlayerJoined(pid) |> broadcastExcept ws
     
     ws.on_message <| fun msg ->
-        let msg' = JS.JSON.parse (string msg) :?> WsMessage
+        let msg' = msg |> string |> ofJson
         match msg' with
-        | PostCircle(pid,x,y) -> 
+        | AddCircle(pid,x,y) -> 
             addCircle(pid,x,y)
-            NewCircle(pid,x,y) |> broadcastAll
+            AddCircle(pid,x,y) |> broadcastAll
         | DeleteCircle(pid,x,y) ->
             deleteCircle(pid,x,y)
             DeleteCircle(pid,x,y) |> broadcastAll

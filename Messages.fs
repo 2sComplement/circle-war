@@ -12,9 +12,8 @@ type WsMessage =
     | IdPlayer of pid:PlayerId
     | PlayerJoined of pid:PlayerId
     | PlayerLeft of pid:PlayerId
-    | PostCircle of pid:PlayerId * x:float * y:float
     | DeleteCircle of pid:PlayerId * x:float * y:float
-    | NewCircle of pid:PlayerId * x:float * y:float
+    | AddCircle of pid:PlayerId * x:float * y:float
 
 let addCircle (pid,x,y) (circles:PlayerCircles) =
     match circles |> Map.tryFind pid with

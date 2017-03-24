@@ -22,13 +22,13 @@ let view model dispatch =
             f pid
         | None -> OnClick ignore
     
-    let postCircle =
+    let newCircle =
         fun pid ->
             OnClick <| fun e -> 
                 let dim = (e.target :?> ClickEvent).getBoundingClientRect()
                 let x = e.clientX - dim.left
                 let y = e.clientY - dim.top
-                PostCircle(pid, x, y) |> Send |> dispatch
+                AddCircle(pid, x, y) |> Send |> dispatch
         |> validatePlayer
 
     let deleteCircle (pid, x, y) =
@@ -55,15 +55,17 @@ let view model dispatch =
     let counts,players =
         let numCircles pid = match model.circles |> Map.tryFind pid with | Some c -> c.Length | None -> 0
         let div pid = unbox >> List.singleton >> R.div [ Style [ Margin 2; Color colours.[pid % colours.Length]]]
-        (numCircles model.playerId.Value, sprintf "Player%d (you)" model.playerId.Value, model.playerId.Value) :: (model.otherPlayers |> List.map (fun pid -> numCircles pid, sprintf "Player%d" pid, pid))
+        let id = match model.playerId with | Some id -> id | None -> 0
+        (numCircles id, sprintf "Player%d (you)" id, id) :: (model.otherPlayers |> List.map (fun pid -> numCircles pid, sprintf "Player%d" pid, pid))
         |> List.sortByDescending (fun (c,_,_) -> c)
         |> List.map (fun (circs,name,pid) -> div pid circs, div pid name)
         |> List.unzip
+            
     R.div [] [
         R.div [ Style [ Color currentColour ]] [ unbox (match model.playerId with | Some pid -> sprintf "You are: Player%d" pid | None -> "waiting for server") ]
         R.div [ Style [ Display "flex"; FlexDirection "row" ]] [
             R.div [ Style [ TextAlign "center" ]] [
-                R.svg [ Style [ sprintf "1px solid %s" currentColour |> unbox |> Border; CSSProp.Width 800; Height 600 ]; unbox postCircle ] circles
+                R.svg [ Style [ sprintf "1px solid %s" currentColour |> unbox |> Border; CSSProp.Width 800; Height 600 ]; unbox newCircle ] circles
             ]
             R.div [ Style [ Flex <| unbox 100 ]] [
                 R.div [ Style [ Display "flex"; FlexDirection "row" ]] [

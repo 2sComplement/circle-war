@@ -40,40 +40,27 @@ console.log(ws.readyState);
 
 let onMessage dispatch =
     fun (msg: MessageEvent) ->
-        let msg' = msg.data |> string |> JS.JSON.parse :?> WsMessage
-        match msg' with
-        | NewCircle _
-        | PlayerJoined _
-        | PlayerLeft _
-        | DeleteCircle _
-        | IdPlayer _ as msg -> Rcv msg |> dispatch
-        | _ -> console.log(sprintf "Not handling unknown message: %s" (string msg.data))
-        unbox None
+        msg.data |> string |> ofJson |> Rcv |> dispatch
 
 let onOpen dispatch = fun _ -> Connected true |> dispatch
 let onClose dispatch = fun _ -> Connected false |> dispatch
 
-let subscription dispatch =
+let wsCallbacks dispatch =
     ws.onmessage <- unbox (onMessage dispatch)
     ws.onopen <- unbox (onOpen dispatch)
     ws.onclose <- unbox (onClose dispatch)
 
-let subscribe model = Cmd.ofSub subscription
+let subscribe model = Cmd.ofSub wsCallbacks
 
 ws.onopen <- fun _ ->
     console.log("ws open")
-
     unbox None
 
-let send msg =
-    let m = JS.JSON.stringify msg
-    ws.send m
+let send msg = toJson msg |> ws.send
 
 let init () = { connected = false; playerId = None; otherPlayers = []; circles = Map.empty }, Cmd.batch [ Cmd.ofMsg GetPlayers; Cmd.ofMsg GetCircles ]
 
 // UPDATE
-
-//let outputCircles model = console.log(model.circles |> List.map (fun (pid,(x,y)) -> sprintf "%d (%f,%f)" pid x y) |> List.toArray)
 
 let update (msg:Msg) model =
     match msg with
@@ -85,9 +72,8 @@ let update (msg:Msg) model =
     | Rcv (IdPlayer pid) -> { model with playerId = Some pid }, Cmd.none
     | Rcv (PlayerJoined pid) -> { model with otherPlayers = model.otherPlayers |> List.append [ pid ] |> List.distinct}, Cmd.none 
     | Rcv (PlayerLeft pid) -> { model with otherPlayers = model.otherPlayers |> List.except [ pid ]}, Cmd.none 
-    | Rcv (NewCircle(pid,x,y)) -> { model with circles = model.circles |> addCircle(pid,x,y) }, Cmd.none
+    | Rcv (AddCircle(pid,x,y)) -> { model with circles = model.circles |> addCircle(pid,x,y) }, Cmd.none
     | Rcv (DeleteCircle(pid,x,y)) -> { model with circles = model.circles |> Map.map (fun p coords -> if pid = p then coords |> Array.except [x,y] else coords) }, Cmd.none
-    | Rcv _ -> model, Cmd.none
     | Connected c -> { model with connected = c }, Cmd.none
     | GetPlayers -> model, Cmd.ofPromise (fun _ -> ClientApi.get<PlayerId[]> "/api/players") () GotPlayers Error
     | GotPlayers players -> { model with otherPlayers = Array.toList players |> List.filter (fun p -> p <> model.playerId.Value) |> List.distinct }, Cmd.none
