@@ -51,16 +51,13 @@ let broadcastExcept ws msg =
 wsServer.on_connection(fun ws ->
     let pid = addPlayer()
 
-    if pid > 10 then
-        console.log("Max players reached")
-    else
-        console.log(sprintf "Assigned new player id %d" pid)
+    console.log(sprintf "Assigned new player id %d" pid)
 
-        // Identify the player that joined
-        IdPlayer(pid) |> send ws
+    // Identify the player that joined
+    IdPlayer(pid) |> send ws
 
-        // Let everyone else know that a player has joined
-        PlayerJoined(pid) |> broadcastExcept ws
+    // Let everyone else know that a player has joined
+    PlayerJoined(pid) |> broadcastExcept ws
     
     ws.on_message <| fun msg ->
         let msg' = msg |> string |> ofJson
